@@ -28,6 +28,7 @@
       <a href="#/inventory" data-page="inventory"><span class="ic">▦</span>কাপড় ও স্টক</a>
       <a href="#/accounts" data-page="accounts"><span class="ic">৳</span>হিসাব</a>
       <a href="#/reports" data-page="reports"><span class="ic">▥</span>রিপোর্ট</a>
+      <a href="#/users" data-page="users"><span class="ic">☷</span>ব্যবহারকারী</a>
       <a href="#/settings" data-page="settings"><span class="ic">⚙</span>সেটিংস</a>
     </nav>
     <div class="sidebar-foot" id="backup-hint"></div>
@@ -37,12 +38,14 @@
       <button id="menu-btn" class="btn-icon" aria-label="মেনু">☰</button>
       <div id="page-title">ড্যাশবোর্ড</div>
       <div class="top-actions">
-        <a class="btn btn-gold btn-sm" href="#/orders/new">+ নতুন অর্ডার</a>
+        <a class="btn btn-gold btn-sm need-orders" href="#/orders/new">+ নতুন অর্ডার</a>
+        <button id="user-chip" class="user-chip" hidden title="আমার অ্যাকাউন্ট"></button>
       </div>
     </header>
     <main id="main"></main>
   </div>
 </div>
+<div id="auth-root"></div>
 <div id="modal-root"></div>
 <div id="toast-root"></div>
 <div id="print-area"></div>
@@ -51,6 +54,7 @@
 <script src="js/config.js"></script>
 <script src="js/store.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/print.js"></script>
 <script src="js/pages/dashboard.js"></script>
 <script src="js/pages/customers.js"></script>

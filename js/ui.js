@@ -143,7 +143,7 @@ const UI = {
         const f = UI.formData(form);
         const amount = U.num(f.amount);
         if (amount <= 0) { UI.toast('সঠিক টাকার পরিমাণ লিখুন', 'error'); return false; }
-        onSave({ id: U.uid(), date: f.date, amount, method: f.method, note: f.note });
+        onSave({ id: U.uid(), date: f.date, amount, method: f.method, note: f.note, by: Auth.user?.name || '' });
       }
     });
   },

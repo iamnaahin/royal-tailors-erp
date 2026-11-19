@@ -143,7 +143,7 @@ Pages.customerView = function (root, id) {
     <div class="page-head">
       <div><a href="#/customers" class="small">← সব গ্রাহক</a><h2>${U.esc(c.name)}</h2></div>
       <div class="btn-row">
-        <a class="btn btn-gold" href="#/orders/new?c=${c.id}">+ নতুন অর্ডার</a>
+        <a class="btn btn-gold need-orders" href="#/orders/new?c=${c.id}">+ নতুন অর্ডার</a>
         <button class="btn" data-act="print">🖨 মাপ প্রিন্ট</button>
         ${c.phone ? `<a class="btn" target="_blank" rel="noopener" href="https://wa.me/${U.waPhone(c.phone)}">WhatsApp</a>` : ''}
         <button class="btn" data-act="edit">সম্পাদনা</button>

@@ -2,10 +2,17 @@
 const App = {
   titles: {
     dashboard: 'ড্যাশবোর্ড', orders: 'অর্ডার', customers: 'গ্রাহক ও মাপ', tenders: 'টেন্ডার ও প্রতিষ্ঠান',
-    workers: 'কারিগর', inventory: 'কাপড় ও স্টক', accounts: 'হিসাব', reports: 'রিপোর্ট', settings: 'সেটিংস'
+    workers: 'কারিগর', inventory: 'কাপড় ও স্টক', accounts: 'হিসাব', reports: 'রিপোর্ট', settings: 'সেটিংস',
+    users: 'ব্যবহারকারী'
   },
 
   route() {
+    if (!Auth.user) return;
+    // নিষ্ক্রিয় বা মুছে ফেলা ব্যবহারকারী হলে লগআউট
+    const fresh = DB.get('users', Auth.user.id);
+    if (!fresh || fresh.active === false) { Auth.logout(); return; }
+    Auth.user = fresh;
+    Auth.applyChrome();
     const h = location.hash.replace(/^#\/?/, '').split('?')[0];
     const parts = h.split('/').filter(Boolean);
     const page = Pages[parts[0]] ? parts[0] : 'dashboard';
@@ -17,6 +24,12 @@ const App = {
     const root = document.createElement('div');
     main.appendChild(root);
     UI.bindBnInputs(root);
+    if (!Auth.canPage(page)) {
+      root.innerHTML = `<div class="card"><h3>এই পাতা দেখার অনুমতি আপনার নেই</h3>
+        <p class="text-muted">প্রয়োজন হলে অ্যাডমিনকে অনুমতি দিতে বলুন।</p><a class="btn" href="#/dashboard">ড্যাশবোর্ডে যান</a></div>`;
+      App.refreshChrome();
+      return;
+    }
     try {
       Pages[page](root, parts.slice(1));
     } catch (e) {
@@ -36,6 +49,7 @@ const App = {
     document.getElementById('brand-name').textContent = DB.s.shopName;
     const last = DB.data.meta.lastBackup;
     const days = last ? U.diffDays(U.today(), last) : null;
+    if (!Auth.isAdmin()) { document.getElementById('backup-hint').innerHTML = ''; return; }
     document.getElementById('backup-hint').innerHTML = last
       ? `শেষ ব্যাকআপ: ${U.date(last)}${days >= 7 ? ' <br><a href="#/settings">⚠ নতুন ব্যাকআপ নিন</a>' : ''}`
       : `<a href="#/settings">⚠ এখনো কোনো ব্যাকআপ নেওয়া হয়নি</a>`;
@@ -68,8 +82,10 @@ const App = {
     window.addEventListener('hashchange', App.route);
     document.getElementById('menu-btn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
     window.addEventListener('afterprint', () => document.body.classList.remove('printing'));
-    App.route();
-    if (!existed) App.welcome();
+    document.getElementById('user-chip').addEventListener('click', () => Auth.accountModal());
+    if (!existed) DB.save();
+    // প্রথমবার: অ্যাডমিন তৈরির পর নমুনা/খালি বাছাই
+    Auth.start(() => { if (!existed) App.welcome(); });
   }
 };
 

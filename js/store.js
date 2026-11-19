@@ -28,6 +28,7 @@ const DB = {
       inventory: [],
       stockMoves: [],
       expenses: [],
+      users: [],
       meta: { lastBackup: null, createdAt: U.today() }
     };
   },
@@ -104,11 +105,19 @@ const DB = {
     if (!d || !d.settings || !Array.isArray(d.orders) || !Array.isArray(d.customers)) {
       throw new Error('ফাইলটি রয়্যাল টেইলার্স ইআরপি-র ব্যাকআপ নয়');
     }
+    // পুরনো ব্যাকআপে ব্যবহারকারী না থাকলে বর্তমান ব্যবহারকারীরাই থাকবেন (লক হয়ে যাওয়া এড়াতে)
+    if (!Array.isArray(d.users) || !d.users.length) d.users = this.data.users || [];
     this.data = d;
     this.migrate();
     this.save();
   },
-  reset() { this.data = this.empty(); this.save(); }
+  /** সব ব্যবসায়িক তথ্য মুছে ফেলা — ব্যবহারকারীরা থেকে যাবেন */
+  reset() {
+    const users = this.data.users || [];
+    this.data = this.empty();
+    this.data.users = users;
+    this.save();
+  }
 };
 
 /* ---------------- হিসাব-নিকাশ ---------------- */
@@ -235,6 +244,7 @@ const Calc = {
 
 /* ---------------- নমুনা ডেটা ---------------- */
 DB.seed = function () {
+  const keepUsers = (this.data && this.data.users) || [];
   const d = this.empty();
   const T = U.today();
   const day = n => U.addDays(T, n);
@@ -342,6 +352,7 @@ DB.seed = function () {
     { id: id(), workerId: w2.id, date: day(-4), amount: 3000, method: 'ক্যাশ', note: '' }
   );
   d.meta.demo = true;
+  d.users = keepUsers;
   this.data = d;
   this.save();
 };

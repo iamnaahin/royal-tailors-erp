@@ -115,6 +115,34 @@ const CFG = {
   units: ['গজ', 'মিটার', 'পিস', 'ডজন', 'রিল', 'সেট', 'প্যাকেট'],
   invCats: ['কাপড়', 'লাইনিং', 'বোতাম', 'সুতা', 'চেইন', 'অন্যান্য'],
 
+  /* ব্যবহারকারীর অনুমতি — অ্যাডমিন সবসময় সব পারেন (সেটিংস, ব্যাকআপ ও ব্যবহারকারী ব্যবস্থাপনাসহ) */
+  perms: [
+    ['orders', 'অর্ডার দেখা, তৈরি ও হালনাগাদ'],
+    ['customers', 'গ্রাহক ও মাপ'],
+    ['payments', 'টাকা গ্রহণ ও মজুরি পরিশোধ'],
+    ['tenders', 'টেন্ডার ও প্রতিষ্ঠান'],
+    ['workers', 'কারিগর ও মজুরি'],
+    ['inventory', 'কাপড় ও স্টক'],
+    ['reports', 'রিপোর্ট ও বকেয়া'],
+    ['accounts', 'হিসাব (আয়-ব্যয়, লাভ-ক্ষতি)'],
+    ['delete', 'তথ্য মুছে ফেলা']
+  ],
+  roles: [
+    ['admin', 'অ্যাডমিন'],
+    ['manager', 'ম্যানেজার'],
+    ['employee', 'কর্মচারী']
+  ],
+  roleDefaults: {
+    manager: ['orders', 'customers', 'payments', 'tenders', 'workers', 'inventory', 'reports'],
+    employee: ['orders', 'customers']
+  },
+  /* কোন পাতায় কোন অনুমতি লাগে (admin = শুধু অ্যাডমিন) */
+  pagePerm: {
+    dashboard: null, orders: 'orders', customers: 'customers', tenders: 'tenders', workers: 'workers',
+    inventory: 'inventory', accounts: 'accounts', reports: 'reports', settings: 'admin', users: 'admin'
+  },
+  roleName(r) { return this.roles.find(x => x[0] === r)?.[1] || r; },
+
   statusName(list, key) { const f = this[list].find(s => s[0] === key); return f ? f[1] : key; },
   garmentName(key, custom) { return key === 'other' ? (custom || 'অন্যান্য') : (this.garments[key]?.name || key); }
 };

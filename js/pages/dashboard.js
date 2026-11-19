@@ -47,10 +47,10 @@ Pages.dashboard = function (root) {
         <div class="text-muted">${U.date(T)} · ${U.esc(DB.s.shopName)}, ${U.esc(DB.s.address)}</div>
       </div>
       <div class="btn-row">
-        <a class="btn btn-gold" href="#/orders/new">+ নতুন অর্ডার</a>
-        <a class="btn" href="#/customers?new=1">+ নতুন গ্রাহক</a>
-        <a class="btn" href="#/tenders/new">+ নতুন টেন্ডার</a>
-        <a class="btn" href="#/accounts?expense=1">+ খরচ লিখুন</a>
+        ${Auth.can('orders') ? '<a class="btn btn-gold" href="#/orders/new">+ নতুন অর্ডার</a>' : ''}
+        ${Auth.can('customers') ? '<a class="btn" href="#/customers?new=1">+ নতুন গ্রাহক</a>' : ''}
+        ${Auth.can('tenders') ? '<a class="btn" href="#/tenders/new">+ নতুন টেন্ডার</a>' : ''}
+        ${Auth.can('accounts') ? '<a class="btn" href="#/accounts?expense=1">+ খরচ লিখুন</a>' : ''}
       </div>
     </div>
 
@@ -58,9 +58,9 @@ Pages.dashboard = function (root) {
       <a class="stat gold" href="#/orders?f=today"><div class="lbl">আজকের ডেলিভারি</div><div class="val">${U.count(dueToday.length)}</div><div class="sub">প্রস্তুত: ${U.count(ready.length)} টি অর্ডার</div></a>
       <a class="stat red" href="#/orders?f=overdue"><div class="lbl">বিলম্বিত অর্ডার</div><div class="val">${U.count(overdue.length)}</div><div class="sub">ডেলিভারির তারিখ পার হয়েছে</div></a>
       <a class="stat blue" href="#/orders?f=active"><div class="lbl">চলমান অর্ডার</div><div class="val">${U.count(active.length)}</div><div class="sub">মোট ${U.count(U.sum(active, o => Calc.pieces(o)))} পিস পোশাক</div></a>
-      <a class="stat green" href="#/accounts"><div class="lbl">এই মাসের আয়</div><div class="val">${U.money(income)}</div><div class="sub">আজ: ${U.money(todayIncome)} · ব্যয়: ${U.money(expense)}</div></a>
-      <a class="stat orange" href="#/reports"><div class="lbl">মোট বকেয়া</div><div class="val">${U.money(custDue + tenderDue)}</div><div class="sub">গ্রাহক ${U.money(custDue)} · প্রতিষ্ঠান ${U.money(tenderDue)}</div></a>
-      <a class="stat" href="#/tenders"><div class="lbl">চলমান টেন্ডার</div><div class="val">${U.count(runningT.length)}</div><div class="sub">মোট টেন্ডার: ${U.count(tenders.length)}</div></a>
+      ${Auth.can('accounts') ? `<a class="stat green" href="#/accounts"><div class="lbl">এই মাসের আয়</div><div class="val">${U.money(income)}</div><div class="sub">আজ: ${U.money(todayIncome)} · ব্যয়: ${U.money(expense)}</div></a>` : ''}
+      ${Auth.can('reports') ? `<a class="stat orange" href="#/reports"><div class="lbl">মোট বকেয়া</div><div class="val">${U.money(custDue + tenderDue)}</div><div class="sub">গ্রাহক ${U.money(custDue)} · প্রতিষ্ঠান ${U.money(tenderDue)}</div></a>` : ''}
+      ${Auth.can('tenders') ? `<a class="stat" href="#/tenders"><div class="lbl">চলমান টেন্ডার</div><div class="val">${U.count(runningT.length)}</div><div class="sub">মোট টেন্ডার: ${U.count(tenders.length)}</div></a>` : ''}
     </div>
 
     <div class="card">
@@ -81,7 +81,7 @@ Pages.dashboard = function (root) {
         <div class="card-head"><h3>আজকের ট্রায়াল</h3></div>
         ${trialsToday.length ? `<ul class="list-plain">${trialsToday.map(orderRow).join('')}</ul>` : UI.empty('আজ কোনো ট্রায়াল নেই')}
       </div>
-      <div class="card">
+      <div class="card" ${Auth.can('tenders') ? '' : 'hidden'}>
         <div class="card-head"><h3>টেন্ডারের গুরুত্বপূর্ণ তারিখ</h3><a class="small" href="#/tenders">সব টেন্ডার</a></div>
         ${tenderAlerts.length ? `<ul class="list-plain">${tenderAlerts.map(a => {
           const inst = DB.get('institutions', a.t.institutionId);
@@ -92,7 +92,7 @@ Pages.dashboard = function (root) {
       </div>
     </div>
 
-    ${lowStock.length ? `<div class="card">
+    ${lowStock.length && Auth.can('inventory') ? `<div class="card">
       <div class="card-head"><h3>⚠ স্টক কম</h3><a class="small" href="#/inventory">স্টক দেখুন</a></div>
       <ul class="list-plain">${lowStock.map(i => `<li><span>${U.esc(i.name)}</span><span class="text-red bold">${U.count(Calc.stock(i.id))} ${U.esc(i.unit)} (সর্বনিম্ন ${U.count(i.minStock)})</span></li>`).join('')}</ul>
     </div>` : ''}

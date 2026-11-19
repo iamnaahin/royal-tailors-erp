@@ -267,7 +267,7 @@ const OrderPages = {
         <div class="row"><span>মোট (${U.bn(Calc.pieces(o))} পিস)</span><b>${U.money(sub)}</b></div>
         <div class="row"><span>ছাড় (৳)</span><input type="text" inputmode="decimal" id="discount" value="${U.esc(U.bn(o.discount || ''))}"></div>
         <div class="row total"><span>সর্বমোট</span><span>${U.money(total)}</span></div>
-        ${isNew ? `
+        ${isNew && Auth.can('payments') ? `
           <div class="row"><span>অগ্রিম (৳)</span><input type="text" inputmode="decimal" id="advance" value="${U.esc(U.bn(advance))}"></div>
           <div class="row"><span>অগ্রিমের মাধ্যম</span><select id="adv-method" style="max-width:140px">${UI.opts(CFG.payMethods, advMethod)}</select></div>`
         : `<div class="row"><span>পরিশোধিত</span><span>${U.money(paid)}</span></div>`}
@@ -360,9 +360,10 @@ const OrderPages = {
         o.id = U.uid();
         o.no = DB.nextOrderNo();
         o.createdAt = U.today();
-        o.statusLog = [{ status: 'new', date: U.today() }];
+        o.createdBy = Auth.user?.name || '';
+        o.statusLog = [{ status: 'new', date: U.today(), by: o.createdBy }];
         o.payments = [];
-        if (U.num(advance) > 0) o.payments.push({ id: U.uid(), date: o.date, amount: U.num(advance), method: advMethod, note: 'অগ্রিম' });
+        if (U.num(advance) > 0 && Auth.can('payments')) o.payments.push({ id: U.uid(), date: o.date, amount: U.num(advance), method: advMethod, note: 'অগ্রিম', by: o.createdBy });
       }
       if (root.querySelector('#save-m').checked) {
         const c = cust();
@@ -388,7 +389,7 @@ const OrderPages = {
   setStatus(o, st) {
     o.status = st;
     o.statusLog = o.statusLog || [];
-    o.statusLog.push({ status: st, date: U.today() });
+    o.statusLog.push({ status: st, date: U.today(), by: Auth.user?.name || '' });
     const idx = Calc.statusIdx(st);
     if (st !== 'cancelled' && idx >= Calc.readyIdx()) { if (!o.readyDate) o.readyDate = U.today(); }
     else o.readyDate = null;
@@ -458,6 +459,7 @@ const OrderPages = {
             <dt>ডেলিভারি</dt><dd class="${Calc.isOverdue(o) ? 'text-red' : ''}">${U.date(o.deliveryDate)} ${Calc.isActive(o) ? `(${U.esc(U.relDay(o.deliveryDate))})` : ''}</dd>
             ${o.deliveredDate ? `<dt>ডেলিভারি দেওয়া হয়েছে</dt><dd>${U.date(o.deliveredDate)}</dd>` : ''}
             ${o.note ? `<dt>নোট</dt><dd>${U.esc(o.note)}</dd>` : ''}
+            ${o.createdBy ? `<dt>অর্ডার নিয়েছেন</dt><dd>${U.esc(o.createdBy)}</dd>` : ''}
           </dl>
         </div>
         <div class="card">
@@ -471,7 +473,7 @@ const OrderPages = {
           </div>
           ${(o.payments || []).length ? `<table class="tbl small" style="margin-top:10px">
             <thead><tr><th>তারিখ</th><th>মাধ্যম</th><th>নোট</th><th class="num">টাকা</th><th></th></tr></thead>
-            <tbody>${o.payments.map(p => `<tr><td class="nowrap">${U.dateShort(p.date)}</td><td>${U.esc(p.method)}</td><td>${U.esc(p.note || '')}</td>
+            <tbody>${o.payments.map(p => `<tr><td class="nowrap">${U.dateShort(p.date)}</td><td>${U.esc(p.method)}</td><td>${U.esc(p.note || '')}${p.by ? `<br><span class="text-muted">গ্রহণ: ${U.esc(p.by)}</span>` : ''}</td>
               <td class="num">${U.money(p.amount)}</td><td><button class="btn-icon small" title="মুছুন" data-delpay="${p.id}">✕</button></td></tr>`).join('')}</tbody>
           </table>` : ''}
         </div>
@@ -506,7 +508,7 @@ const OrderPages = {
 
       <div class="card">
         <h3>অবস্থার ইতিহাস</h3>
-        <ul class="list-plain">${(o.statusLog || []).slice().reverse().map(l => `<li><span>${UI.badge(l.status, CFG.statusName('orderStatuses', l.status))}</span><span class="small">${U.date(l.date)}</span></li>`).join('')}</ul>
+        <ul class="list-plain">${(o.statusLog || []).slice().reverse().map(l => `<li><span>${UI.badge(l.status, CFG.statusName('orderStatuses', l.status))}</span><span class="small">${U.date(l.date)}${l.by ? ' · ' + U.esc(l.by) : ''}</span></li>`).join('')}</ul>
       </div>`;
 
     const changeStatus = async st => {
