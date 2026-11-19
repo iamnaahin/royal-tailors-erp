@@ -16,6 +16,8 @@ const DB = {
         prices: { ...CFG.defaultPrices },
         wages: { ...CFG.defaultWages },
         deliveryDays: 7,
+        guestEnabled: true,
+        guestPerms: [...CFG.guestDefaults],
         orderNo: 1001,
         tenderNo: 1
       },
@@ -29,6 +31,7 @@ const DB = {
       stockMoves: [],
       expenses: [],
       users: [],
+      guestLog: [],
       meta: { lastBackup: null, createdAt: U.today() }
     };
   },
@@ -54,7 +57,12 @@ const DB = {
     this.data.settings.wages = { ...CFG.defaultWages, ...this.data.settings.wages };
   },
 
-  save() {
+  save(force) {
+    // অতিথি (শুধু দেখা) কোনো তথ্য বদলাতে পারবেন না
+    if (!force && typeof Auth !== 'undefined' && Auth.user && Auth.user.guest) {
+      UI.toast('অতিথি হিসেবে কিছু পরিবর্তন করা যায় না', 'error');
+      return false;
+    }
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(this.data));
       return true;

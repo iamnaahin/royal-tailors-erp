@@ -8,14 +8,24 @@ const App = {
 
   route() {
     if (!Auth.user) return;
-    // নিষ্ক্রিয় বা মুছে ফেলা ব্যবহারকারী হলে লগআউট
-    const fresh = DB.get('users', Auth.user.id);
-    if (!fresh || fresh.active === false) { Auth.logout(); return; }
-    Auth.user = fresh;
+    if (Auth.user.guest) {
+      if (DB.s.guestEnabled === false) { Auth.logout(); return; }
+    } else {
+      // নিষ্ক্রিয় বা মুছে ফেলা ব্যবহারকারী হলে লগআউট
+      const fresh = DB.get('users', Auth.user.id);
+      if (!fresh || fresh.active === false) { Auth.logout(); return; }
+      Auth.user = fresh;
+    }
     Auth.applyChrome();
     const h = location.hash.replace(/^#\/?/, '').split('?')[0];
     const parts = h.split('/').filter(Boolean);
     const page = Pages[parts[0]] ? parts[0] : 'dashboard';
+    const q = U.query();
+    if (Auth.user.guest && (parts.includes('new') || parts.includes('edit') || q.get('new') || q.get('expense'))) {
+      location.replace('#/' + (parts[0] && Pages[parts[0]] ? parts[0] : 'dashboard'));
+      UI.toast('অতিথি হিসেবে শুধু দেখা যায়', 'error');
+      return;
+    }
     document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.page === page));
     App.setTitle(App.titles[page]);
     document.body.classList.remove('nav-open');

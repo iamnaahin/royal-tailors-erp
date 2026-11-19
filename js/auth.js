@@ -33,9 +33,11 @@ const Auth = {
   users() { return DB.list('users'); },
   activeAdmins() { return Auth.users().filter(u => u.role === 'admin' && u.active !== false); },
   isAdmin() { return Auth.user?.role === 'admin'; },
+  isGuest() { return !!Auth.user?.guest; },
   can(p) {
     const u = Auth.user;
     if (!u) return false;
+    if (u.guest) return CFG.guestPermOptions.includes(p) && (DB.s.guestPerms || []).includes(p);
     if (u.role === 'admin') return true;
     if (p === 'admin') return false;
     return (u.perms || []).includes(p);
@@ -52,9 +54,17 @@ const Auth = {
       if (remember) localStorage.setItem(AUTH_KEY, id); else localStorage.removeItem(AUTH_KEY);
     } catch (e) { /* ব্রাউজার স্টোরেজ বন্ধ থাকলে প্রতিবার লগইন লাগবে */ }
   },
+  guestUser(entry) {
+    return { id: 'guest:' + entry.id, guest: true, role: 'guest', name: entry.name, perms: [] };
+  },
   restoreSession() {
     let id = null;
     try { id = sessionStorage.getItem(AUTH_KEY) || localStorage.getItem(AUTH_KEY); } catch (e) { id = null; }
+    if (id && id.startsWith('guest:')) {
+      const entry = (DB.data.guestLog || []).find(g => 'guest:' + g.id === id);
+      Auth.user = entry && DB.s.guestEnabled !== false ? Auth.guestUser(entry) : null;
+      return !!Auth.user;
+    }
     const u = id ? DB.get('users', id) : null;
     Auth.user = u && u.active !== false ? u : null;
     return !!Auth.user;
@@ -69,10 +79,12 @@ const Auth = {
   },
   /** লগইন সফল হলে */
   enter(u, remember) {
+    if (!u.guest) {
+      u.lastLogin = new Date().toISOString();
+      DB.save();
+    }
     Auth.user = u;
-    u.lastLogin = new Date().toISOString();
-    DB.save();
-    Auth.saveSession(u.id, remember);
+    Auth.saveSession(u.id, u.guest ? false : remember);
     document.getElementById('auth-root').innerHTML = '';
     document.body.classList.remove('locked');
     App.route();
@@ -134,23 +146,55 @@ const Auth = {
     root.querySelector('#rc-ok').addEventListener('click', onOk);
   },
 
+  /** অতিথি লগইন — শুধু নাম; প্রতিটি লগইন ডেটাবেসে লেখা থাকে */
+  enterGuest(name) {
+    const entry = { id: U.uid(), name: name.trim(), at: new Date().toISOString() };
+    DB.data.guestLog = DB.data.guestLog || [];
+    DB.data.guestLog.unshift(entry);
+    if (DB.data.guestLog.length > 1000) DB.data.guestLog.length = 1000;
+    DB.save(true);
+    Auth.enter(Auth.guestUser(entry), false);
+    UI.toast(`স্বাগতম ${entry.name} — আপনি শুধু দেখতে পারবেন`, 'ok');
+  },
+
   /* ---------- UI: লগইন ---------- */
   showLogin() {
     const users = Auth.users().filter(u => u.active !== false);
-    let sel = users.length === 1 ? users[0] : null;
+    const guestOn = DB.s.guestEnabled !== false;
+    let sel = users.length === 1 && !guestOn ? users[0] : null;
     const draw = () => {
+      const isGuest = sel === 'guest';
       const root = Auth.screen(`
         <h2>লগইন</h2>
         <p class="small text-muted">${sel ? '' : 'আপনার নাম বেছে নিন'}</p>
         <div class="user-tiles">${users.map(u => `<button type="button" class="user-tile ${sel?.id === u.id ? 'active' : ''}" data-u="${u.id}">
-          <span class="avatar">${U.esc(u.name.trim()[0] || '?')}</span><span><b>${U.esc(u.name)}</b><br><span class="small">${U.esc(CFG.roleName(u.role))}</span></span></button>`).join('')}</div>
-        ${sel ? `<form id="login-form" class="auth-form" novalidate>
+          <span class="avatar">${U.esc(u.name.trim()[0] || '?')}</span><span><b>${U.esc(u.name)}</b><br><span class="small">${U.esc(CFG.roleName(u.role))}</span></span></button>`).join('')}
+          ${guestOn ? `<button type="button" class="user-tile guest-tile ${isGuest ? 'active' : ''}" data-guest>
+            <span class="avatar">অ</span><span><b>অতিথি</b><br><span class="small">শুধু দেখা, পাসওয়ার্ড লাগে না</span></span></button>` : ''}</div>
+        ${isGuest ? `<form id="guest-form" class="auth-form" novalidate>
+          ${UI.input('gname', 'আপনার নাম', '', { req: true, ph: 'যেমন: আরিফ হোসেন' })}
+          <p class="small text-muted" style="margin:0">অতিথি হিসেবে আপনি তথ্য দেখতে পারবেন, কিন্তু কিছু লিখতে, বদলাতে বা মুছতে পারবেন না। আপনার নাম ও লগইনের সময় সংরক্ষিত থাকবে।</p>
+          <button class="btn btn-primary" type="submit">অতিথি হিসেবে প্রবেশ করুন</button>
+        </form>` : ''}
+        ${sel && !isGuest ? `<form id="login-form" class="auth-form" novalidate>
           ${UI.input('pw', `${sel.name} — পাসওয়ার্ড`, '', { type: 'password', req: true })}
           <label class="small"><input type="checkbox" name="remember"> এই ডিভাইসে লগইন রাখুন</label>
           <button class="btn btn-primary" type="submit">লগইন করুন</button>
           <a href="#" class="small" id="forgot">পাসওয়ার্ড ভুলে গেছেন?</a>
         </form>` : ''}`);
       root.querySelectorAll('[data-u]').forEach(b => b.addEventListener('click', () => { sel = DB.get('users', b.dataset.u); draw(); }));
+      root.querySelector('[data-guest]')?.addEventListener('click', () => { sel = 'guest'; draw(); });
+      const gform = root.querySelector('#guest-form');
+      if (gform) {
+        gform.querySelector('[name=gname]').focus();
+        gform.addEventListener('submit', e => {
+          e.preventDefault();
+          const name = UI.formData(gform).gname;
+          if (name.length < 2) return UI.toast('আপনার পুরো নাম লিখুন', 'error');
+          Auth.enterGuest(name);
+        });
+        return;
+      }
       const form = root.querySelector('#login-form');
       if (!form) return;
       form.querySelector('[name=pw]').focus();
@@ -200,6 +244,14 @@ const Auth = {
   /* ---------- আমার অ্যাকাউন্ট ---------- */
   accountModal() {
     const u = Auth.user;
+    if (u.guest) {
+      UI.modal('অতিথি', `
+        <p>আপনি <b>${U.esc(u.name)}</b> নামে অতিথি হিসেবে প্রবেশ করেছেন। আপনি শুধু দেখতে পারবেন — কিছু লিখতে, বদলাতে বা মুছতে পারবেন না।</p>
+        <button type="button" class="btn btn-danger" id="logout">বের হয়ে যান</button>`, {
+        onMount: (m, close) => m.querySelector('#logout').addEventListener('click', () => { close(); Auth.logout(); })
+      });
+      return;
+    }
     const list = u.role === 'admin' ? ['সব কিছু (সেটিংস, ব্যাকআপ ও ব্যবহারকারী ব্যবস্থাপনাসহ)'] : CFG.perms.filter(([k]) => Auth.can(k)).map(p => p[1]);
     UI.modal('আমার অ্যাকাউন্ট', `
       <dl class="info-list"><dt>নাম</dt><dd>${U.esc(u.name)}</dd><dt>ভূমিকা</dt><dd>${U.esc(CFG.roleName(u.role))}</dd></dl>
@@ -241,6 +293,7 @@ const Auth = {
     b.toggle('no-delete', !Auth.can('delete'));
     b.toggle('no-payments', !Auth.can('payments'));
     b.toggle('no-orders', !Auth.can('orders'));
+    b.toggle('readonly', Auth.isGuest());
     document.querySelectorAll('#nav a').forEach(a => { a.hidden = !Auth.canPage(a.dataset.page); });
     const chip = document.getElementById('user-chip');
     if (Auth.user) {
@@ -263,6 +316,41 @@ document.addEventListener('click', e => {
       UI.toast('এই কাজের অনুমতি আপনার নেই', 'error');
       return;
     }
+  }
+}, true);
+
+/* অতিথি (শুধু দেখা): এই বোতামগুলো ছাড়া অ্যাপের ভেতরের কোনো বোতাম কাজ করবে না */
+const VIEW_ONLY_ALLOW = [
+  '[data-close]', '[data-f]', '[data-tab]', '[data-dir]', '[data-hist]', '[data-challan]',
+  '[data-act="receipt"]', '[data-act="slip"]', '[data-act="print"]', '[data-act="quote"]', '[data-act="bill"]', '[data-act="staff-print"]',
+  '#r-print', '#user-chip', '#menu-btn', '#logout'
+].join(',');
+document.addEventListener('click', e => {
+  if (!Auth.isGuest() || !e.target.closest) return;
+  const el = e.target.closest('button, a, label.btn');
+  if (!el || el.closest('#nav') || el.matches(VIEW_ONLY_ALLOW)) return;
+  if (el.tagName === 'A') {
+    const href = el.getAttribute('href') || '';
+    const editing = /\/(new|edit)\b|[?&](new|expense)=/.test(href) || href.startsWith('https://wa.me');
+    if (!editing) return; // সাধারণ দেখার লিংক চলবে
+  }
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  UI.toast('অতিথি হিসেবে শুধু দেখা যায় — এই কাজটি করা যাবে না', 'error');
+}, true);
+document.addEventListener('change', e => {
+  if (Auth.isGuest() && e.target.matches && e.target.matches('#status-sel, #t-st, #guest-on, [data-gp], .item-card *, #order-form *, #t-form *')) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    UI.toast('অতিথি হিসেবে শুধু দেখা যায়', 'error');
+    App.route();
+  }
+}, true);
+document.addEventListener('submit', e => {
+  if (Auth.isGuest() && !e.target.closest('.auth-screen')) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    UI.toast('অতিথি হিসেবে কিছু সংরক্ষণ করা যায় না', 'error');
   }
 }, true);
 
@@ -363,7 +451,38 @@ Pages.users = function (root) {
           <button class="btn btn-sm" data-reset-u="${u.id}">পাসওয়ার্ড</button>
           <button class="btn btn-sm btn-danger" data-del-u="${u.id}">মুছুন</button></td></tr>`).join('')}</tbody>
     </table></div>
-    <p class="small text-muted">টিপস: কেউ চাকরি ছেড়ে দিলে অ্যাকাউন্ট মুছে না ফেলে "নিষ্ক্রিয়" করে দিন। প্রত্যেক ডিভাইসে (কম্পিউটার/মোবাইল) ব্যবহারকারী আলাদাভাবে তৈরি করতে হবে, অথবা ব্যাকআপ ফাইল দিয়ে নিয়ে যেতে হবে।</p></div>`;
+    <p class="small text-muted">টিপস: কেউ চাকরি ছেড়ে দিলে অ্যাকাউন্ট মুছে না ফেলে "নিষ্ক্রিয়" করে দিন। প্রত্যেক ডিভাইসে (কম্পিউটার/মোবাইল) ব্যবহারকারী আলাদাভাবে তৈরি করতে হবে, অথবা ব্যাকআপ ফাইল দিয়ে নিয়ে যেতে হবে।</p></div>
+
+    <div class="card">
+      <div class="card-head"><h3>অতিথি লগইন (শুধু দেখা)</h3>
+        <label class="perm-row"><input type="checkbox" id="guest-on" ${DB.s.guestEnabled !== false ? 'checked' : ''}> লগইন পাতায় অতিথি অপশন দেখান</label></div>
+      <p class="small text-muted">অতিথি শুধু নিজের নাম লিখে ঢুকতে পারেন — পাসওয়ার্ড লাগে না। তিনি কিছু লিখতে, বদলাতে, টাকা নিতে বা মুছতে পারবেন না। নিচে টিক দিন অতিথি কোন কোন পাতা দেখতে পারবেন (ড্যাশবোর্ড সবসময় দেখা যায়)।</p>
+      <div class="perm-grid" id="guest-perms">${CFG.guestPermOptions.map(k => `<label class="perm-row"><input type="checkbox" data-gp="${k}" ${(DB.s.guestPerms || []).includes(k) ? 'checked' : ''}> ${U.esc(CFG.perms.find(p => p[0] === k)[1])}</label>`).join('')}</div>
+      <div class="card-head" style="margin-top:16px"><h3>অতিথিদের লগইনের তালিকা (${U.bn((DB.data.guestLog || []).length)})</h3>
+        ${(DB.data.guestLog || []).length ? '<button class="btn btn-sm btn-danger" id="guest-clear">তালিকা মুছুন</button>' : ''}</div>
+      <div class="table-wrap" style="max-height:320px;overflow-y:auto"><table class="tbl small">
+        <thead><tr><th>#</th><th>নাম</th><th>তারিখ</th><th>সময়</th></tr></thead>
+        <tbody>${(DB.data.guestLog || []).length ? DB.data.guestLog.map((g, i) => {
+          const d = new Date(g.at);
+          return `<tr><td>${U.bn(i + 1)}</td><td>${U.esc(g.name)}</td><td class="nowrap">${U.date(U.iso(d))}</td>
+            <td class="nowrap">${U.bn(d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }))}</td></tr>`;
+        }).join('') : `<tr><td colspan="4">${UI.empty('এখনো কোনো অতিথি লগইন করেননি')}</td></tr>`}</tbody>
+      </table></div>
+    </div>`;
+
+  root.querySelector('#guest-on').addEventListener('change', e => {
+    DB.s.guestEnabled = e.target.checked;
+    DB.save();
+    UI.toast(e.target.checked ? 'অতিথি লগইন চালু হয়েছে' : 'অতিথি লগইন বন্ধ হয়েছে', 'ok');
+  });
+  root.querySelector('#guest-perms').addEventListener('change', () => {
+    DB.s.guestPerms = [...root.querySelectorAll('[data-gp]:checked')].map(i => i.dataset.gp);
+    DB.save();
+    UI.toast('অতিথির অনুমতি সংরক্ষিত হয়েছে', 'ok');
+  });
+  root.querySelector('#guest-clear')?.addEventListener('click', async () => {
+    if (await UI.confirm('অতিথিদের লগইনের পুরো তালিকা মুছে ফেলবেন?', 'মুছুন')) { DB.data.guestLog = []; DB.save(); App.route(); }
+  });
 
   root.querySelector('#add-u').addEventListener('click', () => editModal(null));
   root.addEventListener('click', async e => {

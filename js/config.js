@@ -141,7 +141,10 @@ const CFG = {
     dashboard: null, orders: 'orders', customers: 'customers', tenders: 'tenders', workers: 'workers',
     inventory: 'inventory', accounts: 'accounts', reports: 'reports', settings: 'admin', users: 'admin'
   },
-  roleName(r) { return this.roles.find(x => x[0] === r)?.[1] || r; },
+  /* অতিথি শুধু দেখতে পারেন — কোন কোন পাতা, তা অ্যাডমিন ঠিক করেন */
+  guestPermOptions: ['orders', 'customers', 'tenders', 'workers', 'inventory', 'reports', 'accounts'],
+  guestDefaults: ['orders', 'customers', 'tenders', 'inventory'],
+  roleName(r) { return r === 'guest' ? 'অতিথি (শুধু দেখা)' : (this.roles.find(x => x[0] === r)?.[1] || r); },
 
   statusName(list, key) { const f = this[list].find(s => s[0] === key); return f ? f[1] : key; },
   garmentName(key, custom) { return key === 'other' ? (custom || 'অন্যান্য') : (this.garments[key]?.name || key); }
