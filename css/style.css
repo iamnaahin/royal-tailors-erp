@@ -25,6 +25,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; padding: 0; }
 body {
   font-family: var(--font);
@@ -166,7 +167,7 @@ table.tbl { width: 100%; border-collapse: collapse; }
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field label { font-size: .86rem; color: #4a536a; font-weight: 500; }
 .field .req { color: var(--red); }
-input[type=text], input[type=date], input[type=month], input[type=tel], input[type=number], select, textarea {
+input[type=text], input[type=password], input[type=date], input[type=month], input[type=tel], input[type=number], select, textarea {
   border: 1px solid #ccd2de; border-radius: 8px; padding: 7px 10px; background: #fff; color: var(--text);
   width: 100%; min-width: 0;
 }
@@ -289,7 +290,7 @@ body.locked #app { visibility: hidden; }
 body.no-delete :is([data-act="del"], [data-delpay], [data-del], [data-staff-del], [data-delmove], #del, #del-i) { display: none !important; }
 body.no-payments :is([data-act="pay"], [data-pay], #pay) { display: none !important; }
 body.no-orders .need-orders { display: none !important; }
-/* অতিথি: শুধু দেখার বোতাম ছাড়া সব লুকানো */
+/* লগইন ছাড়া: শুধু দেখার বোতাম ছাড়া সব লুকানো */
 body.readonly #main button:not([data-f], [data-tab], [data-dir], [data-hist], [data-challan], [data-act="receipt"], [data-act="slip"], [data-act="print"], [data-act="quote"], [data-act="bill"], [data-act="staff-print"], #r-print),
 body.readonly #main :is(a[href*="/new"], a[href*="/edit"], a[href*="?new="], a[href*="expense="], a[href^="https://wa.me"], #status-sel, #t-st, label.btn),
 body.readonly .need-orders { display: none !important; }

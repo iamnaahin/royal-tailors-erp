@@ -31,7 +31,6 @@ const DB = {
       stockMoves: [],
       expenses: [],
       users: [],
-      guestLog: [],
       meta: { lastBackup: null, createdAt: U.today() }
     };
   },
@@ -55,12 +54,19 @@ const DB = {
     this.data.settings = { ...base.settings, ...this.data.settings };
     this.data.settings.prices = { ...CFG.defaultPrices, ...this.data.settings.prices };
     this.data.settings.wages = { ...CFG.defaultWages, ...this.data.settings.wages };
+    // সংস্করণ ৫: অতিথি নাম-লগইনের বদলে লগইন ছাড়া দেখা — নতুন সাধারণ পাতাগুলো ও পুরনো অতিথি তালিকা বাদ
+    if (!this.data.settings.viewModeV2) {
+      this.data.settings.guestPerms = [...CFG.guestDefaults];
+      this.data.settings.guestEnabled = true;
+      this.data.settings.viewModeV2 = true;
+      delete this.data.guestLog;
+    }
   },
 
   save(force) {
-    // অতিথি (শুধু দেখা) কোনো তথ্য বদলাতে পারবেন না
+    // লগইন ছাড়া (শুধু দেখা) কোনো তথ্য বদলানো যাবে না
     if (!force && typeof Auth !== 'undefined' && Auth.user && Auth.user.guest) {
-      UI.toast('অতিথি হিসেবে কিছু পরিবর্তন করা যায় না', 'error');
+      UI.toast('পরিবর্তন করতে আগে লগইন করুন', 'error');
       return false;
     }
     try {

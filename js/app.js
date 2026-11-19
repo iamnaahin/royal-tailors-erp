@@ -23,7 +23,7 @@ const App = {
     const q = U.query();
     if (Auth.user.guest && (parts.includes('new') || parts.includes('edit') || q.get('new') || q.get('expense'))) {
       location.replace('#/' + (parts[0] && Pages[parts[0]] ? parts[0] : 'dashboard'));
-      UI.toast('অতিথি হিসেবে শুধু দেখা যায়', 'error');
+      UI.toast('যোগ বা সম্পাদনা করতে আগে লগইন করুন', 'error');
       return;
     }
     document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('active', a.dataset.page === page));
@@ -95,7 +95,8 @@ const App = {
     document.getElementById('user-chip').addEventListener('click', () => Auth.accountModal());
     if (!existed) DB.save();
     // প্রথমবার: অ্যাডমিন তৈরির পর নমুনা/খালি বাছাই
-    Auth.start(() => { if (!existed) App.welcome(); });
+    // প্রথম অ্যাডমিন তৈরির পর, দোকানে কোনো তথ্য না থাকলে নমুনা/খালি বাছাই
+    Auth.start(() => { if (!DB.list("orders").length && !DB.list("customers").length) App.welcome(); });
     App.checkUpdate();
   },
 
@@ -115,6 +116,6 @@ const App = {
 };
 
 /* সংস্করণ — আপডেটের সময় এটি, version.json এবং index.html এর ?v= একসাথে বাড়াতে হবে */
-const APP_VERSION = 4;
+const APP_VERSION = 5;
 
 App.init();
