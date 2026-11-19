@@ -1,0 +1,4 @@
+# local preview config (points to a temp folder on this PC)
+.claude/
+# backups may contain real customer data — never upload them
+*backup*.json
