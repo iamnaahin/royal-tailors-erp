@@ -96,7 +96,25 @@ const App = {
     if (!existed) DB.save();
     // প্রথমবার: অ্যাডমিন তৈরির পর নমুনা/খালি বাছাই
     Auth.start(() => { if (!existed) App.welcome(); });
+    App.checkUpdate();
+  },
+
+  /** অনলাইনে নতুন সংস্করণ থাকলে পাতা নিজে থেকে নতুন করে লোড হবে (ব্রাউজারের পুরনো ক্যাশ এড়াতে) */
+  checkUpdate() {
+    if (!/^https?:$/.test(location.protocol)) return;
+    fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(v => {
+        if (!v || !(Number(v.v) > APP_VERSION)) return;
+        const key = 'rt_reloaded_for_v' + v.v;
+        try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch (e) { /* ignore */ }
+        location.replace(location.pathname + '?v=' + v.v + location.hash);
+      })
+      .catch(() => { /* অফলাইনে থাকলে কিছু করার দরকার নেই */ });
   }
 };
+
+/* সংস্করণ — আপডেটের সময় এটি, version.json এবং index.html এর ?v= একসাথে বাড়াতে হবে */
+const APP_VERSION = 4;
 
 App.init();
